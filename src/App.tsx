@@ -118,7 +118,6 @@ function UploadPortal() {
               <label htmlFor="media"><Upload size={16}/> Upload Photo or Video</label>
               <div 
                 className={`file-upload-box ${mediaFile ? 'has-file' : ''}`}
-                onClick={() => fileInputRef.current?.click()}
               >
                 {mediaFile ? (
                    <span className="file-name">{mediaFile.name} (Ready)</span>
