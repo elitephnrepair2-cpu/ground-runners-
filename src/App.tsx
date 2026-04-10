@@ -15,6 +15,7 @@ function UploadPortal() {
     businessName: '',
   });
   const [mediaFiles, setMediaFiles] = useState<File[]>([]);
+  const [previewOverlay, setPreviewOverlay] = useState<File | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -152,7 +153,10 @@ function UploadPortal() {
               <div className="preview-list animate-fade-in">
                 {mediaFiles.map((file, idx) => (
                   <div key={idx} className="preview-item">
-                    <span className="truncate">{file.name}</span>
+                    <div className="preview-info" onClick={() => setPreviewOverlay(file)}>
+                      {file.type.startsWith('image') ? <ImageIcon size={16}/> : <Play size={16}/>}
+                      <span className="truncate">{file.name}</span>
+                    </div>
                     <button 
                       type="button" 
                       className="btn-remove" 
@@ -175,6 +179,22 @@ function UploadPortal() {
       <footer className="portal-footer">
         <Link to="/admin">Admin Login</Link>
       </footer>
+
+      {previewOverlay && (
+        <div className="fullscreen-overlay animate-fade-in" onClick={() => setPreviewOverlay(null)}>
+          <button className="btn-close-overlay" onClick={() => setPreviewOverlay(null)}>
+            <X size={24} />
+          </button>
+          
+          <div className="overlay-content" onClick={e => e.stopPropagation()}>
+            {previewOverlay.type.startsWith('video') ? (
+              <video src={URL.createObjectURL(previewOverlay)} controls autoPlay className="fullscreen-media" />
+            ) : (
+              <img src={URL.createObjectURL(previewOverlay)} alt="Preview" className="fullscreen-media" />
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
