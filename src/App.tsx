@@ -14,46 +14,53 @@ function UploadPortal() {
     runnerName: '',
     businessName: '',
   });
-  const [mediaFile, setMediaFile] = useState<File | null>(null);
+  const [mediaFiles, setMediaFiles] = useState<File[]>([]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!mediaFile) return alert('Please select a photo or video.');
+    if (mediaFiles.length === 0) return alert('Please select at least one photo or video.');
     
     setIsUploading(true);
     setErrorMsg('');
     
     try {
-      // 1. Upload to Supabase Storage
-      const fileExt = mediaFile.name.split('.').pop();
-      const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
-      
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('flyer-media')
-        .upload(fileName, mediaFile);
+      const inserts = [];
 
-      if (uploadError) throw new Error(`Upload failed: ${uploadError.message}`);
+      for (const file of mediaFiles) {
+        // 1. Upload each to Supabase Storage
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+        
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('flyer-media')
+          .upload(fileName, file);
 
-      // 2. Get Public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('flyer-media')
-        .getPublicUrl(uploadData.path);
+        if (uploadError) throw new Error(`Upload failed for ${file.name}: ${uploadError.message}`);
 
-      // 3. Insert Record into Database
-      const { error: dbError } = await supabase
-        .from('submissions')
-        .insert({
+        // 2. Get Public URL
+        const { data: { publicUrl } } = supabase.storage
+          .from('flyer-media')
+          .getPublicUrl(uploadData.path);
+
+        // Queue insertion
+        inserts.push({
           runner_name: formData.runnerName,
           business_name: formData.businessName,
-          media_type: mediaFile.type.startsWith('video') ? 'video' : 'image',
+          media_type: file.type.startsWith('video') ? 'video' : 'image',
           media_url: publicUrl
         });
+      }
+
+      // 3. Insert all records into Database
+      const { error: dbError } = await supabase
+        .from('submissions')
+        .insert(inserts);
 
       if (dbError) throw new Error(`Database error: ${dbError.message}`);
       
       setIsSuccess(true);
       setFormData({ runnerName: '', businessName: '' });
-      setMediaFile(null);
+      setMediaFiles([]);
       setTimeout(() => setIsSuccess(false), 4000);
       
     } catch (err: any) {
@@ -117,21 +124,22 @@ function UploadPortal() {
             <div className="form-group">
               <label htmlFor="media"><Upload size={16}/> Upload Photo or Video</label>
               <div 
-                className={`file-upload-box ${mediaFile ? 'has-file' : ''}`}
+                className={`file-upload-box ${mediaFiles.length > 0 ? 'has-file' : ''}`}
               >
-                {mediaFile ? (
-                   <span className="file-name">{mediaFile.name} (Ready)</span>
+                {mediaFiles.length > 0 ? (
+                   <span className="file-name">{mediaFiles.length} file(s) selected</span>
                 ) : (
-                   <span>+ Tap to Select Media</span>
+                   <span>+ Tap to Select Multiple Media</span>
                 )}
                 <input 
                   type="file" 
                   ref={fileInputRef}
                   id="media" 
+                  multiple
                   accept="image/*,video/*" 
                   onChange={e => {
                     if (e.target.files && e.target.files.length > 0) {
-                      setMediaFile(e.target.files[0]);
+                      setMediaFiles(Array.from(e.target.files));
                     }
                   }}
                 />
@@ -217,30 +225,54 @@ function AdminDashboard() {
 
         {isLoading ? (
           <p className="empty-state">Loading submissions...</p>
-        ) : filteredSubmissions.length === 0 ? (
-          <p className="empty-state card">No submissions found.</p>
         ) : (
-          <div className="submissions-grid">
-            {filteredSubmissions.map((sub, idx) => (
-              <div key={sub.id} className="submission-card card animate-slide-up" style={{ animationDelay: `${idx * 0.05}s` }}>
-                <div className="media-container">
-                  {sub.media_type === 'video' ? (
-                    <video src={sub.media_url} controls className="media-preview" />
-                  ) : (
-                    <img src={sub.media_url} alt="Proof" className="media-preview" />
-                  )}
-                  <div className="media-badge">
-                    {sub.media_type === 'video' ? <Play size={12}/> : <ImageIcon size={12}/>}
+          <>
+            <h3 style={{ marginBottom: '1rem', marginTop: '1rem', color: 'var(--text-primary)' }}>Photos</h3>
+            {filteredSubmissions.filter(sub => sub.media_type === 'image').length === 0 ? (
+              <p className="empty-state card">No photos found.</p>
+            ) : (
+              <div className="submissions-grid">
+                {filteredSubmissions.filter(sub => sub.media_type === 'image').map((sub, idx) => (
+                  <div key={sub.id} className="submission-card card animate-slide-up" style={{ animationDelay: `${idx * 0.05}s` }}>
+                    <div className="media-container">
+                      <img src={sub.media_url} alt="Proof" className="media-preview" />
+                      <div className="media-badge">
+                        <ImageIcon size={12}/>
+                      </div>
+                    </div>
+                    <div className="submission-details">
+                      <h3>{sub.business_name}</h3>
+                      <p className="runner-tag"><User size={12}/> {sub.runner_name}</p>
+                      <p className="date-tag">{new Date(sub.created_at).toLocaleString()}</p>
+                    </div>
                   </div>
-                </div>
-                <div className="submission-details">
-                  <h3>{sub.business_name}</h3>
-                  <p className="runner-tag"><User size={12}/> {sub.runner_name}</p>
-                  <p className="date-tag">{new Date(sub.created_at).toLocaleString()}</p>
-                </div>
+                ))}
               </div>
-            ))}
-          </div>
+            )}
+
+            <h3 style={{ marginBottom: '1rem', marginTop: '2.5rem', color: 'var(--text-primary)' }}>Videos</h3>
+            {filteredSubmissions.filter(sub => sub.media_type === 'video').length === 0 ? (
+              <p className="empty-state card">No videos found.</p>
+            ) : (
+              <div className="submissions-grid">
+                {filteredSubmissions.filter(sub => sub.media_type === 'video').map((sub, idx) => (
+                  <div key={sub.id} className="submission-card card animate-slide-up" style={{ animationDelay: `${idx * 0.05}s` }}>
+                    <div className="media-container">
+                      <video src={sub.media_url} controls className="media-preview" />
+                      <div className="media-badge">
+                        <Play size={12}/>
+                      </div>
+                    </div>
+                    <div className="submission-details">
+                      <h3>{sub.business_name}</h3>
+                      <p className="runner-tag"><User size={12}/> {sub.runner_name}</p>
+                      <p className="date-tag">{new Date(sub.created_at).toLocaleString()}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </>
         )}
       </main>
     </div>
