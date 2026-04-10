@@ -154,7 +154,11 @@ function UploadPortal() {
                 {mediaFiles.map((file, idx) => (
                   <div key={idx} className="preview-item">
                     <div className="preview-info" onClick={() => setPreviewOverlay(file)}>
-                      {file.type.startsWith('image') ? <ImageIcon size={16}/> : <Play size={16}/>}
+                      {file.type.startsWith('video') ? (
+                        <video src={URL.createObjectURL(file)} className="inline-thumbnail" />
+                      ) : (
+                        <img src={URL.createObjectURL(file)} alt="thumb" className="inline-thumbnail" />
+                      )}
                       <span className="truncate">{file.name}</span>
                     </div>
                     <button 

@@ -327,6 +327,16 @@ input[type="text"]:focus, input[type="password"]:focus {
   text-overflow: ellipsis;
 }
 
+.inline-thumbnail {
+  width: 40px;
+  height: 40px;
+  object-fit: cover;
+  border-radius: 4px;
+  flex-shrink: 0;
+  background-color: #000;
+  border: 1px solid var(--border-color);
+}
+
 /* Fullscreen Overlay */
 .fullscreen-overlay {
   position: fixed;
