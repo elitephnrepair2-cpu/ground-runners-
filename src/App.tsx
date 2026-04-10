@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
-import { Upload, CheckCircle, Store, User, Camera, Play, ArrowLeft, Search, Image as ImageIcon, Loader2 } from 'lucide-react';
+import { Upload, CheckCircle, Store, User, Camera, Play, ArrowLeft, Search, Image as ImageIcon, Loader2, X } from 'lucide-react';
 import { supabase, type Submission } from './supabase';
 
 // --- PORTAL COMPONENT ---
@@ -139,12 +139,31 @@ function UploadPortal() {
                   accept="image/*,video/*" 
                   onChange={e => {
                     if (e.target.files && e.target.files.length > 0) {
-                      setMediaFiles(Array.from(e.target.files));
+                      setMediaFiles(prev => [...prev, ...Array.from(e.target.files!)]);
+                      // Clear the input value so the same file selection can be triggered consecutively
+                      e.target.value = '';
                     }
                   }}
                 />
               </div>
             </div>
+
+            {mediaFiles.length > 0 && (
+              <div className="preview-list animate-fade-in">
+                {mediaFiles.map((file, idx) => (
+                  <div key={idx} className="preview-item">
+                    <span className="truncate">{file.name}</span>
+                    <button 
+                      type="button" 
+                      className="btn-remove" 
+                      onClick={() => setMediaFiles(prev => prev.filter((_, i) => i !== idx))}
+                    >
+                      <X size={16} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
 
             <button type="submit" className={`btn-primary ${isUploading ? 'loading' : ''}`} disabled={isUploading}>
               {isUploading ? <><Loader2 size={16} className="animate-spin" style={{marginRight: '8px', animation: 'spin 1s linear infinite'}}/> Uploading...</> : 'Submit Info'}
